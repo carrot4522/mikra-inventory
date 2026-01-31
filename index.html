@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#1e3a5f">
+    <title>📦 Mikra Inventory</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 50%, #1e3a5f 100%);
+            min-height: 100vh;
+            color: white;
+            overflow-x: hidden;
+            width: 100%;
+            padding-bottom: 80px;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 12px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 16px;
+            padding-top: 10px;
+        }
+        
+        .header h1 {
+            font-size: 22px;
+            background: linear-gradient(90deg, #4fc3f7, #81d4fa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .header p {
+            color: #9ca3af;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+        
+        /* Sync Status */
+        .sync-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            margin-bottom: 12px;
+        }
+        
+        .sync-status.synced { background: rgba(34, 197, 94, 0.2); border: 1px solid #22c55e; }
+        .sync-status.syncing { background: rgba(59, 130, 246, 0.2); border: 1px solid #3b82f6; }
+        .sync-status.error { background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; }
+        .sync-status.offline { background: rgba(107, 114, 128, 0.2); border: 1px solid #6b7280; }
+        
+        .sync-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        
+        .sync-status.synced .sync-dot { background: #22c55e; }
+        .sync-status.syncing .sync-dot { background: #3b82f6; animation: pulse 1s infinite; }
+        .sync-status.error .sync-dot { background: #ef4444; }
+        .sync-status.offline .sync-dot { background: #6b7280; }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        /* Stats */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        
+        .stat-box {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 10px 6px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .stat-number {
+            font-size: 20px;
+            font-weight: bold;
+            color: #4fc3f7;
+        }
+        
+        .stat-number.green { color: #4ade80; }
+        .stat-number.yellow { color: #facc15; }
+        .stat-number.red { color: #f87171; }
+        
+        .stat-label {
+            font-size: 10px;
+            color: #9ca3af;
+            margin-top: 2px;
+        }
+        
+        /* Search */
+        .search-container {
+            margin-bottom: 12px;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 14px 16px;
+            border-radius: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        
+        .search-input:focus {
+            border-color: #4fc3f7;
+        }
+        
+        .search-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+        
+        /* Filters */
+        .filters {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .filter-btn {
+            padding: 8px 14px;
+            border-radius: 20px;
+            border: none;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.1);
+            color: #d1d5db;
+            transition: all 0.2s;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: rgba(79, 195, 247, 0.3);
+            user-select: none;
+        }
+        
+        .filter-btn.active {
+            background: #4fc3f7;
+            color: #1e3a5f;
+        }
+        
+        /* Product List */
+        .product-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .product-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: transform 0.1s, background 0.2s;
+            touch-action: manipulation;
+        }
+        
+        .product-card:active {
+            transform: scale(0.98);
+        }
+        
+        .product-card:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+        
+        .product-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .product-name {
+            font-weight: 600;
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .product-details {
+            font-size: 11px;
+            color: #9ca3af;
+            margin-top: 2px;
+        }
+        
+        .product-sku {
+            font-size: 10px;
+            color: #6b7280;
+            margin-top: 2px;
+        }
+        
+        .product-stock {
+            text-align: right;
+            min-width: 60px;
+        }
+        
+        .stock-number {
+            font-size: 20px;
+            font-weight: bold;
+        }
+        
+        .stock-number.high { color: #4ade80; }
+        .stock-number.medium { color: #facc15; }
+        .stock-number.low { color: #fb923c; }
+        .stock-number.zero { color: #f87171; }
+        
+        .stock-label {
+            font-size: 10px;
+            color: #9ca3af;
+        }
+        
+        /* Load More */
+        .load-more {
+            text-align: center;
+            padding: 16px;
+        }
+        
+        .load-more-btn {
+            padding: 12px 24px;
+            border-radius: 12px;
+            border: none;
+            background: #4fc3f7;
+            color: #1e3a5f;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        
+        /* Product Detail Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+        
+        .modal {
+            background: linear-gradient(135deg, #1e3a5f, #2d5a87);
+            border-radius: 16px;
+            padding: 20px;
+            width: 100%;
+            max-width: 400px;
+            max-height: 80vh;
+            overflow-y: auto;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .modal-title {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .modal-close {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .detail-label {
+            color: #9ca3af;
+            font-size: 13px;
+        }
+        
+        .detail-value {
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        /* Refresh Button */
+        .refresh-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: #4fc3f7;
+            border: none;
+            color: #1e3a5f;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: manipulation;
+            z-index: 100;
+        }
+        
+        .refresh-btn.spinning {
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Results count */
+        .results-count {
+            text-align: center;
+            font-size: 12px;
+            color: #9ca3af;
+            margin-bottom: 12px;
+        }
+        
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #9ca3af;
+        }
+        
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #9ca3af;
+        }
+        
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+        
+        /* Mobile fixes */
+        @media (max-width: 400px) {
+            .container { padding: 8px; }
+            .stats { gap: 4px; }
+            .stat-number { font-size: 18px; }
+            .stat-label { font-size: 9px; }
+            .product-name { font-size: 13px; }
+            .filter-btn { padding: 6px 10px; font-size: 11px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+    
+    <script>
+        // ⚠️ PASTE YOUR GOOGLE APPS SCRIPT URL BELOW ⚠️
+        const API_URL = 'https://script.google.com/macros/s/AKfycbxFN1mKsAtTm38j2wk0-0MEDhfZCbI8lHi0Akm4AyxWb06vCNHG579ZQ6SneMPGuKMY/exec';
+        
+        // State
+        let state = {
+            products: [],
+            filteredProducts: [],
+            searchQuery: '',
+            filter: 'all', // all, instock, low, zero
+            selectedProduct: null,
+            syncStatus: 'offline',
+            isLoading: true,
+            displayCount: 50,
+            lastSync: null
+        };
+        
+        // Initialize
+        async function init() {
+            render();
+            
+            // Try to load from localStorage first
+            const saved = localStorage.getItem('mikraInventory');
+            if (saved) {
+                try {
+                    state.products = JSON.parse(saved);
+                    state.filteredProducts = state.products;
+                    state.isLoading = false;
+                    state.syncStatus = 'offline';
+                    render();
+                } catch (e) {
+                    console.error('Error loading saved data:', e);
+                }
+            }
+            
+            // Then fetch from cloud
+            await fetchData();
+        }
+        
+        // Fetch data from Google Sheets
+        async function fetchData() {
+            if (API_URL === 'YOUR_GOOGLE_SCRIPT_URL_HERE') {
+                state.syncStatus = 'offline';
+                state.isLoading = false;
+                render();
+                return;
+            }
+            
+            state.syncStatus = 'syncing';
+            render();
+            
+            try {
+                const response = await fetch(`${API_URL}?action=read`, {
+                    method: 'GET',
+                    redirect: 'follow'
+                });
+                
+                const data = await response.json();
+                
+                if (data.products && data.products.length > 0) {
+                    state.products = data.products;
+                    state.filteredProducts = applyFilters();
+                    state.syncStatus = 'synced';
+                    state.lastSync = new Date();
+                    localStorage.setItem('mikraInventory', JSON.stringify(state.products));
+                    localStorage.setItem('mikraLastSync', state.lastSync.toISOString());
+                } else {
+                    state.syncStatus = 'error';
+                }
+            } catch (error) {
+                console.error('Fetch error:', error);
+                state.syncStatus = 'error';
+            }
+            
+            state.isLoading = false;
+            render();
+        }
+        
+        // Apply search and filters
+        function applyFilters() {
+            let filtered = [...state.products];
+            
+            // Search filter
+            if (state.searchQuery) {
+                const query = state.searchQuery.toLowerCase();
+                filtered = filtered.filter(p => 
+                    (p.Producto && p.Producto.toLowerCase().includes(query)) ||
+                    (p.Color && p.Color.toLowerCase().includes(query)) ||
+                    (p.SKU && p.SKU.toString().includes(query)) ||
+                    (p.Talle && p.Talle.toString().toLowerCase().includes(query))
+                );
+            }
+            
+            // Stock filter
+            switch (state.filter) {
+                case 'instock':
+                    filtered = filtered.filter(p => p.Stock > 10);
+                    break;
+                case 'low':
+                    filtered = filtered.filter(p => p.Stock > 0 && p.Stock <= 10);
+                    break;
+                case 'zero':
+                    filtered = filtered.filter(p => p.Stock === 0);
+                    break;
+            }
+            
+            return filtered;
+        }
+        
+        // Get stats
+        function getStats() {
+            const products = state.products;
+            return {
+                total: products.length,
+                inStock: products.filter(p => p.Stock > 0).length,
+                low: products.filter(p => p.Stock > 0 && p.Stock <= 10).length,
+                zero: products.filter(p => p.Stock === 0).length
+            };
+        }
+        
+        // Get stock class
+        function getStockClass(stock) {
+            if (stock === 0) return 'zero';
+            if (stock <= 5) return 'low';
+            if (stock <= 20) return 'medium';
+            return 'high';
+        }
+        
+        // Handle search
+        function handleSearch(value) {
+            state.searchQuery = value;
+            state.filteredProducts = applyFilters();
+            state.displayCount = 50;
+            render();
+        }
+        
+        // Handle filter change
+        function handleFilterChange(filter) {
+            state.filter = filter;
+            state.filteredProducts = applyFilters();
+            state.displayCount = 50;
+            render();
+        }
+        
+        // Handle product click
+        function handleProductClick(sku) {
+            state.selectedProduct = state.products.find(p => p.SKU === sku);
+            render();
+        }
+        
+        // Handle close modal
+        function handleCloseModal() {
+            state.selectedProduct = null;
+            render();
+        }
+        
+        // Handle load more
+        function handleLoadMore() {
+            state.displayCount += 50;
+            render();
+        }
+        
+        // Handle refresh
+        async function handleRefresh() {
+            await fetchData();
+        }
+        
+        // Format price
+        function formatPrice(price) {
+            if (!price) return '-';
+            return new Intl.NumberFormat('es-AR', { 
+                style: 'currency', 
+                currency: 'ARS',
+                maximumFractionDigits: 0
+            }).format(price);
+        }
+        
+        // Render sync status
+        function renderSyncStatus() {
+            const statusText = {
+                synced: '☁️ Sincronizado',
+                syncing: '🔄 Sincronizando...',
+                error: '⚠️ Error de conexión',
+                offline: '📴 Modo offline'
+            };
+            
+            return `
+                <div class="sync-status ${state.syncStatus}">
+                    <span class="sync-dot"></span>
+                    <span>${statusText[state.syncStatus]}</span>
+                </div>
+            `;
+        }
+        
+        // Render product detail modal
+        function renderModal() {
+            if (!state.selectedProduct) return '';
+            
+            const p = state.selectedProduct;
+            return `
+                <div class="modal-overlay" onclick="handleCloseModal()">
+                    <div class="modal" onclick="event.stopPropagation()">
+                        <div class="modal-header">
+                            <div class="modal-title">📦 Detalle del Producto</div>
+                            <button class="modal-close" onclick="handleCloseModal()">✕</button>
+                        </div>
+                        
+                        <div class="detail-row">
+                            <span class="detail-label">SKU</span>
+                            <span class="detail-value">${p.SKU}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Producto</span>
+                            <span class="detail-value">${p.Producto || '-'}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Color</span>
+                            <span class="detail-value">${p.Color || '-'}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Talle</span>
+                            <span class="detail-value">${p.Talle || '-'}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Stock</span>
+                            <span class="detail-value stock-number ${getStockClass(p.Stock)}">${p.Stock}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Precio Compra</span>
+                            <span class="detail-value">${formatPrice(p.Precio)}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Ventas Total</span>
+                            <span class="detail-value">${p.VentasTotal || 0}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Ubicación</span>
+                            <span class="detail-value">${p.Ubicacion || '-'}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Main render
+        function render() {
+            const app = document.getElementById('app');
+            const stats = getStats();
+            const displayProducts = state.filteredProducts.slice(0, state.displayCount);
+            const hasMore = state.filteredProducts.length > state.displayCount;
+            
+            app.innerHTML = `
+                <div class="container">
+                    <div class="header">
+                        <h1>📦 Mikra Inventory</h1>
+                        <p>Sistema de Inventario • v1</p>
+                    </div>
+                    
+                    ${renderSyncStatus()}
+                    
+                    <div class="stats">
+                        <div class="stat-box">
+                            <div class="stat-number">${stats.total.toLocaleString()}</div>
+                            <div class="stat-label">Total</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-number green">${stats.inStock.toLocaleString()}</div>
+                            <div class="stat-label">En Stock</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-number yellow">${stats.low}</div>
+                            <div class="stat-label">Bajo Stock</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-number red">${stats.zero}</div>
+                            <div class="stat-label">Sin Stock</div>
+                        </div>
+                    </div>
+                    
+                    <div class="search-container">
+                        <input 
+                            type="text" 
+                            class="search-input" 
+                            placeholder="🔍 Buscar por nombre, SKU, color..."
+                            value="${state.searchQuery}"
+                            oninput="handleSearch(this.value)"
+                        >
+                    </div>
+                    
+                    <div class="filters">
+                        <button class="filter-btn ${state.filter === 'all' ? 'active' : ''}" onclick="handleFilterChange('all')">📦 Todos</button>
+                        <button class="filter-btn ${state.filter === 'instock' ? 'active' : ''}" onclick="handleFilterChange('instock')">✅ Stock</button>
+                        <button class="filter-btn ${state.filter === 'low' ? 'active' : ''}" onclick="handleFilterChange('low')">⚠️ Bajo</button>
+                        <button class="filter-btn ${state.filter === 'zero' ? 'active' : ''}" onclick="handleFilterChange('zero')">❌ Sin Stock</button>
+                    </div>
+                    
+                    <div class="results-count">
+                        Mostrando ${displayProducts.length} de ${state.filteredProducts.length.toLocaleString()} productos
+                    </div>
+                    
+                    ${state.isLoading ? `
+                        <div class="loading">
+                            <div>🔄 Cargando inventario...</div>
+                        </div>
+                    ` : displayProducts.length === 0 ? `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📭</div>
+                            <div>No se encontraron productos</div>
+                        </div>
+                    ` : `
+                        <div class="product-list">
+                            ${displayProducts.map(p => `
+                                <div class="product-card" onclick="handleProductClick(${p.SKU})">
+                                    <div class="product-info">
+                                        <div class="product-name">${p.Producto || 'Sin nombre'}</div>
+                                        <div class="product-details">${p.Color || ''} ${p.Talle ? '• ' + p.Talle : ''}</div>
+                                        <div class="product-sku">SKU: ${p.SKU} • Ubic: ${p.Ubicacion || '-'}</div>
+                                    </div>
+                                    <div class="product-stock">
+                                        <div class="stock-number ${getStockClass(p.Stock)}">${p.Stock}</div>
+                                        <div class="stock-label">stock</div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        
+                        ${hasMore ? `
+                            <div class="load-more">
+                                <button class="load-more-btn" onclick="handleLoadMore()">
+                                    Cargar más (${state.filteredProducts.length - state.displayCount} restantes)
+                                </button>
+                            </div>
+                        ` : ''}
+                    `}
+                </div>
+                
+                <button class="refresh-btn ${state.syncStatus === 'syncing' ? 'spinning' : ''}" onclick="handleRefresh()">
+                    🔄
+                </button>
+                
+                ${renderModal()}
+            `;
+        }
+        
+        // Service Worker registration
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(() => {});
+        }
+        
+        // Start app
+        init();
+    </script>
+</body>
+</html>
