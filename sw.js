@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mikra-inventory-v1';
+const CACHE_NAME = 'mikra-inventory-v2';
 const urlsToCache = [
   '/',
   '/index.html',
